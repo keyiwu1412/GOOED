@@ -1,5 +1,7 @@
-# Copyright (c) 2016-2018, The University of Texas at Austin
-# & University of California, Merced.
+# Copyright (c) 2016-2018, The University of Texas at Austin 
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -17,7 +19,6 @@ import matplotlib.colors as cls
 import dolfin as dl
 import numpy as np
 from matplotlib import animation
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 """
 Plotting utilities for notebooks
@@ -71,11 +72,7 @@ def plot(obj, colorbar=True, subplot_loc=None, mytitle=None, show_axis='off', vm
 #    plt.gca().set_aspect('equal')
     if isinstance(obj, dl.Function):
         pp = _mplot_function(obj, vmin, vmax, logscale)
-    elif isinstance(obj, dl.CellFunctionSizet):
-        pp = _mplot_cellfunction(obj)
-    elif isinstance(obj, dl.CellFunctionDouble):
-        pp = _mplot_cellfunction(obj)
-    elif isinstance(obj, dl.CellFunctionInt):
+    elif isinstance(obj, dl.MeshFunction):
         pp = _mplot_cellfunction(obj)
     elif isinstance(obj, dl.Mesh):
         if (obj.geometry().dim() != 2):
@@ -88,13 +85,7 @@ def plot(obj, colorbar=True, subplot_loc=None, mytitle=None, show_axis='off', vm
     plt.axis(show_axis)
         
     if colorbar:
-        # ax = plt.gca()
-        # divider = make_axes_locatable(ax)
-        # cax = divider.append_axes("right", size="5%", pad=0.05)
-
-        # plt.colorbar(pp, cax=cax)
-        plt.colorbar(pp, fraction=0.046, pad=0.01)
-        plt.gca().set_aspect('equal')
+        plt.colorbar(pp, fraction=.1, pad=0.2)
     else:
         plt.gca().set_aspect('equal')
         
@@ -108,7 +99,7 @@ def plot(obj, colorbar=True, subplot_loc=None, mytitle=None, show_axis='off', vm
         
     return pp
         
-def multi1_plot(objs, titles, target_all,filename='initial.pdf', same_colorbar=True, show_axis='off', logscale=False, vmin=None, vmax=None, cmap=None):
+def multi1_plot(objs, titles, same_colorbar=True, show_axis='off', logscale=False, vmin=None, vmax=None, cmap=None):
     """
     Plot a list of generic dolfin object in a single row
     """       
@@ -126,31 +117,22 @@ def multi1_plot(objs, titles, target_all,filename='initial.pdf', same_colorbar=T
                             
     nobj = len(objs)
     if nobj == 1:
-        fig = plt.figure(figsize=(7.5,5))
+        plt.figure(figsize=(7.5,5))
         subplot_loc = 110
     elif nobj == 2:
-        fig = plt.figure(figsize=(13,5))
+        plt.figure(figsize=(15,5))
         subplot_loc = 120
     elif nobj == 3:
-        fig = plt.figure(figsize=(18,4))
+        plt.figure(figsize=(18,4))
         subplot_loc = 130
-    elif nobj == 4:
-        fig = plt.figure(figsize=(16,4))
-        fig.subplots_adjust(wspace = 0.01)
-        subplot_loc = 140
     else:
         raise AttributeError("Too many figures")
              
     for i in range(nobj):
-        plot(objs[i], colorbar=False,
+        plot(objs[i], colorbar=True,
              subplot_loc=(subplot_loc+i+1), mytitle=titles[i],
              show_axis='off', vmin=vmin, vmax=vmax, logscale=logscale, cmap=cmap)
-        if target_all[i] is not None:
-            targets = target_all[i]
-            plt.plot(targets[:,0],targets[:,1],color='#FDF5E6', marker='o',markerfacecolor="None",linestyle="None")
-    # filename = 'figure/initial.pdf'
-    fig.savefig(filename, format='pdf')
-    plt.close() 
+
 
 def plot_pts(points, values, colorbar=True, subplot_loc=None, mytitle=None, show_axis='on', vmin=None, vmax=None, xlim=(0,1), ylim=(0,1),cmap=None):
     """
@@ -159,10 +141,8 @@ def plot_pts(points, values, colorbar=True, subplot_loc=None, mytitle=None, show
     if subplot_loc is not None:
         plt.subplot(subplot_loc)
     
-    try:
-        pp = plt.scatter(points[:,0], points[:,1], c=values.get_local(), marker=",", s=20, vmin=vmin, vmax=vmax)
-    except:
-        pp = plt.scatter(points[:,0], points[:,1], c=values, marker=",", s=20, vmin=vmin, vmax=vmax)
+    pp = plt.scatter(points[:,0], points[:,1], c=values.get_local(), marker=",", s=20, vmin=vmin, vmax=vmax)
+        
     plt.axis(show_axis)
         
     if colorbar:
@@ -196,7 +176,7 @@ def show_solution(Vh, ic, state, same_colorbar=True, colorbar=True, mytitle=None
     assert len(times) % 3 == 0
     nrows = len(times) / 3
     subplot_loc = nrows*100 + 30
-    fig = plt.figure(figsize=(20,5*nrows))
+    plt.figure(figsize=(18,4*nrows))
     
     if mytitle is None:
         title_stamp = "Time {0}s"
@@ -228,11 +208,9 @@ def show_solution(Vh, ic, state, same_colorbar=True, colorbar=True, mytitle=None
         plot(myu, subplot_loc=(subplot_loc+counter), mytitle=title_stamp.format(i), colorbar=colorbar,
              logscale=logscale, show_axis=show_axis, vmin=vmin, vmax=vmax, cmap = cmap)
         counter = counter+1
-    filename = 'figure/solution.pdf'
-    fig.savefig(filename, format='pdf')
-    plt.close() 
-    
 
+    
+        
 def animate(Vh, state, same_colorbar=True, colorbar=True,
             subplot_loc=None, mytitle=None, show_axis='off', logscale=False):
     """
@@ -307,4 +285,6 @@ def plot_eigenvectors(Vh, U, mytitle, which = [0,1,2,5,10,15], cmap = None):
         u.vector().axpy(s, U[i])
         plot(u, subplot_loc=(subplot_loc+counter), mytitle=title_stamp.format(i), vmin=-1, vmax=1, cmap = cmap)
         counter = counter+1
+    
+    
     

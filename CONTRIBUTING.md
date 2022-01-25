@@ -146,10 +146,10 @@ will allow us to reach you directly with project announcements.
   - Well-designed simple code is frequently more general and powerful.
   - Lean code base is easier to understand by new collaborators.
   - New features should be added only if they are necessary or generally useful.
-  - Code should be compatible with Python 3, and `from __future__ import` should
-    be placed on the top each new file to preserve Python 2 compatibility.
+  - Code must be compatible with Python 3.
   - When adding new features add an example in the `application` folder and/or a
     new notebook in the `tutorial` folder.
+  - The preferred way to export solutions for visualization in paraview is using `dl.XDMFFile`
 
 - *Keep the code general and reasonably efficient*
   - Main goal is fast prototyping for research.
@@ -236,6 +236,10 @@ constraint on jobs.
 
 - Contact the hIPPYlib team by posting to the [GitHub issue tracker](https://github.com/hippylib/hippylib/issues).
   Please perform a search to make sure your question has not been answered already.
+  
+## Slack channel
+
+The hIPPYlib slack channel is a good resource to request and receive help with using hIPPYlib. Everyone is invited to read and take part in discussions. Discussions about development of new features in hIPPYlib also take place here. You can join our Slack community by filling in [this form](https://forms.gle/w8B7uKSXxdVCmfZ99). 
 
 ## [Developer's Certificate of Origin 1.1](https://developercertificate.org/)
 

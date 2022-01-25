@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2018, The University of Texas at Austin 
-# & University of California, Merced.
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -11,30 +13,21 @@
 # terms of the GNU General Public License (as published by the Free
 # Software Foundation) version 2.0 dated June 1991.
 
-from __future__ import absolute_import, division, print_function
-
 import dolfin as dl
-from ..utils.checkDolfinVersion import dlversion
+import ufl
 import numpy as np
 import os
     
 abspath = os.path.dirname( os.path.abspath(__file__) )
 source_directory = os.path.join(abspath,"cpp_AssemblePointwiseObservation")
-header_file = open(os.path.join(source_directory,"AssemblePointwiseObservation.h"), "r")
-code = header_file.read()
-header_file.close()
-cpp_sources = ["AssemblePointwiseObservation.cpp"]
+with open(os.path.join(source_directory,"AssemblePointwiseObservation.cpp"), "r") as cpp_file:
+    cpp_code    = cpp_file.read()
+
 
 include_dirs = [".", source_directory]
-for ss in ['PROFILE_INSTALL_DIR', 'PETSC_DIR', 'SLEPC_DIR']:
-    if ss in os.environ.keys():
-        include_dirs.append(os.environ[ss]+'/include')
-        
-cpp_module = dl.compile_extension_module(
-             code = code, source_directory = source_directory,
-             sources = cpp_sources, include_dirs=include_dirs)
+cpp_module = dl.compile_cpp_code(cpp_code, include_dirs=include_dirs)
 
-def assemblePointwiseObservation(Vh, targets):
+def assemblePointwiseObservation(Vh, targets, prune_and_sort=False):
     """
     Assemble the pointwise observation matrix:
 
@@ -44,9 +37,9 @@ def assemblePointwiseObservation(Vh, targets):
         - :code:`targets`: observation points (numpy array).
     """
     #Ensure that PetscInitialize is called
-    dummy = dl.assemble( dl.inner(dl.TrialFunction(Vh), dl.TestFunction(Vh))*dl.dx )
+    dummy = dl.assemble( ufl.inner(dl.TrialFunction(Vh), dl.TestFunction(Vh))*ufl.dx )
     #Call the cpp module to compute the pointwise observation matrix
-    tmp = cpp_module.PointwiseObservation(Vh,targets.flatten())
+    tmp = cpp_module.PointwiseObservation(Vh._cpp_object,targets.flatten(), prune_and_sort)
     #return the matrix
     return tmp.GetMatrix()
 
@@ -72,13 +65,13 @@ def exportPointwiseObservation(Vh, B, data, fname, varname="observation"):
 
     xyz = [B*dl.interpolate(fun, Vh).vector() for fun in xyz_fun]
     
-    if dlversion() >= (2016,1,0) and dlversion() != (2017,2,0):
+    try:
         xyz_array = np.stack([xi.get_local() for xi in xyz])
         pp = [dl.Point( (xyz_array[:,i]).flatten() ) for i in np.arange(xyz_array.shape[1])]
         values = data.get_local()
-        fid = dl.XDMFFile(dl.mpi_comm_world(), fname+".xdmf")
+        fid = dl.XDMFFile(Vh.mesh().mpi_comm(), fname+".xdmf")
         fid.write(pp, values)
-    else:
+    except:
         data_on_pzero = data.gather_on_zero()
         xyz_on_pzero = np.zeros((data_on_pzero.shape[0], 3))
         for i in range(len(xyz)):

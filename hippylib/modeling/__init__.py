@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2018, The University of Texas at Austin 
-# & University of California, Merced.
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -11,17 +13,14 @@
 # terms of the GNU General Public License (as published by the Free
 # Software Foundation) version 2.0 dated June 1991.
 
-
-from __future__ import absolute_import, division, print_function
-
 from .variables import *
 
-from .expression import code_AnisTensor2D, code_Mollifier
+from .expression import ExpressionModule
 from .pointwiseObservation import assemblePointwiseObservation, exportPointwiseObservation
 from .timeDependentVector import TimeDependentVector
 
 from .PDEProblem import PDEProblem, PDEVariationalProblem
-from .prior import _Prior, LaplacianPrior, BiLaplacianPrior, MollifiedBiLaplacianPrior, GaussianRealPrior
+from .prior import _Prior, LaplacianPrior, SqrtPrecisionPDE_Prior, BiLaplacianPrior, MollifiedBiLaplacianPrior, GaussianRealPrior
 from .misfit import Misfit, ContinuousStateObservation, PointwiseStateObservation, MultiStateMisfit
 from .model import Model
 from .modelVerify import modelVerify

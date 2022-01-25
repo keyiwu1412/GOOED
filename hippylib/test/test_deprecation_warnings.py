@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2018, The University of Texas at Austin 
-# & University of California, Merced.
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -11,14 +13,12 @@
 # terms of the GNU General Public License (as published by the Free
 # Software Foundation) version 2.0 dated June 1991.
 
-from __future__ import absolute_import, division, print_function
-
 import unittest 
 import warnings
 
 import sys
 sys.path.append('../../')
-from hippylib import deprecated, hIPPYlibDeprecationWarning
+from hippylib import deprecated
 
 @deprecated(version='2.2.0', msg='Blah')
 def blabla(a):
@@ -48,6 +48,10 @@ class TestDeprecationWarnings(unittest.TestCase):
             self.assertTrue(expected in str(w[0].message))
             
 if __name__ == '__main__':
-    unittest.main()
+    import dolfin as dl
+    mpi_comm_world = dl.MPI.comm_world
+    mpi_size = dl.MPI.size(mpi_comm_world)
+    if mpi_size == 1:
+        unittest.main()
 
 

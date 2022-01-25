@@ -1,5 +1,7 @@
-# Copyright (c) 2016-2018, The University of Texas at Austin
-# & University of California, Merced.
+# Copyright (c) 2016-2018, The University of Texas at Austin 
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -15,7 +17,6 @@
 from setuptools import setup, find_packages
 from os import path
 from io import open
-import re
 
 
 try:
@@ -25,15 +26,12 @@ except ImportError:
     raise
 else:
     fenics_version_major = int(dolfin_version[0:4])
-    if (fenics_version_major < 2016 or fenics_version_major >= 2018):
+    if (fenics_version_major < 2019 or fenics_version_major >= 2020):
         raise Exception(
-            'hIPPYlib requires FEniCS versions 2016.x.x or 2017.x.x')
+            'hIPPYlib requires FEniCS versions 2019.x.x')
     if not has_linear_algebra_backend("PETSc"):
         raise Exception(
             'hIPPYlib requires FEniCS to be installed with PETSc support')
-    if not has_slepc():
-        raise Exception(
-            'hIPPYlib requires FEniCS to be installed with SLEPc support')
     
 
 here = path.abspath(path.dirname(__file__))
@@ -77,8 +75,6 @@ setup(
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering',
         'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
@@ -87,14 +83,14 @@ setup(
     packages=find_packages(exclude=['applications', 'doc', 'test']),
     install_requires=REQUIREMENTS,
     extras_require=EXTRAS,
-    python_requires=">=2.6,!=3.0,!=3.1,!=3.2,!=3.3,!=3.4,!=3.5,<4",
+    python_requires=">=3.6,<4",
     include_package_data=True,
     package_data={
         'hippylib': [
             'utils/cpp_rand/*.cpp', 'utils/cpp_rand/*.h',
+            'utils/cpp_cartesian2mesh/*.cpp',
             'modeling/cpp_AssemblePointwiseObservation/*.cpp', 'modeling/cpp_AssemblePointwiseObservation/*.h',
-            'algorithms/cpp_multivector/*.cpp', 'algorithms/cpp_multivector/*.h',
-            'algorithms/cpp_linalg/*.cpp', 'algorithms/cpp_linalg/*.h',
+            'algorithms/cpp_multivector/*.cpp', 'algorithms/cpp_multivector/*.hpp',
         ],
     },
     project_urls={

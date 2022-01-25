@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2018, The University of Texas at Austin 
-# & University of California, Merced.
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -11,13 +13,12 @@
 # terms of the GNU General Public License (as published by the Free
 # Software Foundation) version 2.0 dated June 1991.
 
-from __future__ import absolute_import, division, print_function
-
 import dolfin as dl
+import ufl
 from .variables import STATE, PARAMETER, ADJOINT
 from ..algorithms.linalg import Transpose 
+from ..algorithms.linSolvers import PETScLUSolver
 from ..utils.vector2function import vector2Function
-from ..utils.checkDolfinVersion import dlversion
 
 class PDEProblem(object):
     """ Consider the PDE problem:
@@ -40,7 +41,7 @@ class PDEProblem(object):
         """ Initialize the parameter. """
         raise NotImplementedError("Child class should implement method init_parameter")
 
-    def solveFwd(self, state, x, tol):
+    def solveFwd(self, state, x):
         """ Solve the possibly nonlinear forward problem:
         Given :math:`m`, find :math:`u` such that
 
@@ -48,7 +49,7 @@ class PDEProblem(object):
         """
         raise NotImplementedError("Child class should implement method solveFwd")
 
-    def solveAdj(self, state, x, adj_rhs, tol):
+    def solveAdj(self, adj, x, adj_rhs):
         """ Solve the linear adjoint problem: 
             Given :math:`m`, :math:`u`; find :math:`p` such that
             
@@ -68,7 +69,7 @@ class PDEProblem(object):
             the Hessian should be used."""
         raise NotImplementedError("Child class should implement method setLinearizationPoint")
       
-    def solveIncremental(self, out, rhs, is_adj, mytol):
+    def solveIncremental(self, out, rhs, is_adj):
         """ If :code:`is_adj = False`:
 
             Solve the forward incremental system:
@@ -128,7 +129,10 @@ class PDEVariationalProblem(PDEProblem):
         self.solver_adj_inc = None
         
         self.is_fwd_linear = is_fwd_linear
-        
+        self.n_calls = {"forward": 0,
+                        "adjoint":0 ,
+                        "incremental_forward":0,
+                        "incremental_adjoint":0}
     def generate_state(self):
         """ Return a vector in the shape of the state. """
         return dl.Function(self.Vh[STATE]).vector()
@@ -142,11 +146,12 @@ class PDEVariationalProblem(PDEProblem):
         dummy = self.generate_parameter()
         m.init( dummy.mpi_comm(), dummy.local_range() )
     
-    def solveFwd(self, state, x, tol):
+    def solveFwd(self, state, x):
         """ Solve the possibly nonlinear forward problem:
         Given :math:`m`, find :math:`u` such that
         
             .. math:: \\delta_p F(u, m, p;\\hat{p}) = 0,\\quad \\forall \\hat{p}."""
+        self.n_calls["forward"] += 1
         if self.solver is None:
             self.solver = self._createLUSolver()
         if self.is_fwd_linear:
@@ -154,8 +159,8 @@ class PDEVariationalProblem(PDEProblem):
             m = vector2Function(x[PARAMETER], self.Vh[PARAMETER])
             p = dl.TestFunction(self.Vh[ADJOINT])
             res_form = self.varf_handler(u, m, p)
-            A_form = dl.lhs(res_form)
-            b_form = dl.rhs(res_form)
+            A_form = ufl.lhs(res_form)
+            b_form = ufl.rhs(res_form)
             A, b = dl.assemble_system(A_form, b_form, bcs=self.bc)
             self.solver.set_operator(A)
             self.solver.solve(state, b)
@@ -168,12 +173,13 @@ class PDEVariationalProblem(PDEProblem):
             state.zero()
             state.axpy(1., u.vector())
         
-    def solveAdj(self, adj, x, adj_rhs, tol):
+    def solveAdj(self, adj, x, adj_rhs):
         """ Solve the linear adjoint problem: 
             Given :math:`m, u`; find :math:`p` such that
             
                 .. math:: \\delta_u F(u, m, p;\\hat{u}) = 0, \\quad \\forall \\hat{u}.
         """
+        self.n_calls["adjoint"] += 1
         if self.solver is None:
             self.solver = self._createLUSolver()
             
@@ -184,7 +190,7 @@ class PDEVariationalProblem(PDEProblem):
         dp = dl.TrialFunction(self.Vh[ADJOINT])
         varf = self.varf_handler(u, m, p)
         adj_form = dl.derivative( dl.derivative(varf, u, du), p, dp )
-        Aadj, dummy = dl.assemble_system(adj_form, dl.inner(u,du)*dl.dx, self.bc0)
+        Aadj, dummy = dl.assemble_system(adj_form, ufl.inner(u,du)*ufl.dx, self.bc0)
         self.solver.set_operator(Aadj)
         self.solver.solve(adj, adj_rhs)
      
@@ -254,8 +260,10 @@ class PDEVariationalProblem(PDEProblem):
                 .. math:: \\delta_{up} F(u, m, p; \\hat{u}, \\tilde{p}) = \\mbox{rhs},\\quad \\forall \\hat{u}.
         """
         if is_adj:
+            self.n_calls["incremental_adjoint"] += 1
             self.solver_adj_inc.solve(out, rhs)
         else:
+            self.n_calls["incremental_forward"] += 1
             self.solver_fwd_inc.solve(out, rhs)
     
     def apply_ij(self,i,j, dir, out):   
@@ -301,8 +309,7 @@ class PDEVariationalProblem(PDEProblem):
         if i in [STATE,ADJOINT]:
             [bc.apply(out) for bc in self.bc0]
                    
-    def _createLUSolver(self):
-        if dlversion() <= (1,6,0):
-            return dl.PETScLUSolver()
-        else:
-            return dl.PETScLUSolver(self.Vh[STATE].mesh().mpi_comm() )
+    def _createLUSolver(self):   
+        return PETScLUSolver(self.Vh[STATE].mesh().mpi_comm() )
+
+        

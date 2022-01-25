@@ -1,5 +1,7 @@
 /* Copyright (c) 2016-2018, The University of Texas at Austin
- * & University of California, Merced.
+ * & University of California--Merced.
+ * Copyright (c) 2019-2020, The University of Texas at Austin,
+ * University of California--Merced, Washington University in St. Louis.
  *
  * All Rights reserved.
  * See file COPYRIGHT for details.
@@ -15,6 +17,9 @@
 #include <dolfin/la/GenericVector.h>
 #include <random>
 #include <cassert>
+
+namespace hippylib
+{
 
 template<class Engine>
 class PRNG
@@ -116,8 +121,7 @@ private:
 
 };
 
-namespace dolfin
-{
+
 class Random
 {
 public:
@@ -127,9 +131,9 @@ public:
 	double normal(double mu, double sigma);
 	double rademacher();
 
-	void uniform(GenericVector & v, double a, double b);
-	void normal(GenericVector & v, double sigma, bool zero_out);
-	void rademacher(GenericVector & v);
+	void uniform(dolfin::GenericVector & v, double a, double b);
+	void normal(dolfin::GenericVector & v, double sigma, bool zero_out);
+	void rademacher(dolfin::GenericVector & v);
 
 private:
 	PRNG<std::mt19937> eng;

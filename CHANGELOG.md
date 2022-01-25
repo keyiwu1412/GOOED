@@ -15,6 +15,26 @@ $$/   $$/ $$$$$$/ $$/       $$/           $$/     $$/ $$/ $$$$$$$/
 
                           https://hippylib.github.io
 
+Development version
+-------------------
+- Introduce utilities to interpolate cartesian data (expressed as `numpy arrays`) on a `dolfin` mesh. 
+
+Version 3.0.0, released on Feb 2, 2020
+---------------------------------------- 
+- Support for `FEniCS 2019.1.0`
+- Modify `PointwiseObservation` so that ordering of observations targets is respected also in parallel.
+  Setting the flag `prune_and_sort` to `True` restores previous behavior.
+- Remove unused input `tol` from `Model.solveFwd`, `Model.solveAdj`, `Model.solveFwdIncremental`, `Model.solveAdjIncremental`
+  and from related classes.
+- Use `argparse` to set parameters in application drivers from command line
+- Use `dl.XDMFFile` to export solutions for visualization in Paraview in all application drivers
+- Implement accuracy enhanced SVD algorithm in `randomizedSVD.py`
+- Add forward UQ capabilities, using Taylor approximations as control variates
+- Introduce hIPPYlib's wrappers to `petcs4py.PETSc.KSP`
+- Add reduction operations useful when solving different PDEs concurrently on each process
+- Increase coverage of unit testing in CI
+
+
 Version 2.3.0, released on Sept 6, 2019
 ----------------------------------------
 - Reimplement `BiLaplacianPrior` and `MollifiedBiLaplacianPrior` using a more general framework `SqrtPrecisionPDE_Prior`,

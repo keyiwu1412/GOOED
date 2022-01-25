@@ -1,3 +1,5 @@
+# Author: Keyi Wu 
+
 
 from __future__ import absolute_import, division, print_function
 
@@ -8,7 +10,6 @@ import numpy as np
 from itertools import combinations 
 import scipy
 import matplotlib.pyplot as plt
-import mshr as ms
 import time
 
 import sys
@@ -233,7 +234,7 @@ def ComputeHessianEvalue(misfit,Vh,observation_times,ur_index,noise_std_dev,mesh
     for t in range(misfit2.observation_times.shape[0]):
         misfit2.d.data[t][0:r]=misfit.d.data[t][ur_index]
 
-    H2 = ReducedHessian(problem, 1e-12, misfit_only=True) 
+    H2 = ReducedHessian(problem, misfit_only=True) 
 
     k = r
     p = 2
@@ -354,7 +355,7 @@ problem.gauss_newton_approx = True
 rel_noise = 0.01
 utrue = problem.generate_vector(STATE)
 x = [utrue, true_initial_condition, None]
-problem.solveFwd(x[STATE], x, 1e-9)
+problem.solveFwd(x[STATE], x)
 misfit.observe(x, misfit.d)
 MAX = misfit.d.norm("linf", "linf")
 noise_std_dev = rel_noise * MAX
@@ -364,13 +365,13 @@ misfit.noise_variance = noise_std_dev*noise_std_dev
 
 #####Evaluate the gradient#########################
 [u,m,p] = problem.generate_vector()
-problem.solveFwd(u, [u,m,p], 1e-12)
-problem.solveAdj(p, [u,m,p], 1e-12)
+problem.solveFwd(u, [u,m,p])
+problem.solveAdj(p, [u,m,p])
 mg = problem.generate_vector(PARAMETER)
 grad_norm = problem.evalGradientParameter([u,m,p], mg)
 
 print( "(g,g) = ", grad_norm)
-H = ReducedHessian(problem, 1e-12, misfit_only=True) 
+H = ReducedHessian(problem, misfit_only=True) 
 
 k = ntargets
 p = 2

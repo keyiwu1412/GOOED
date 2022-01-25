@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2018, The University of Texas at Austin 
-# & University of California, Merced.
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -11,9 +13,7 @@
 # terms of the GNU General Public License (as published by the Free
 # Software Foundation) version 2.0 dated June 1991.
 
-from __future__ import absolute_import, division, print_function
-
-from dolfin import Vector, Function, File
+from dolfin import Vector, Function
 from ..algorithms.lowRankOperator import LowRankOperator
 import numpy as np
 
@@ -209,16 +209,12 @@ class GaussianLRPosterior:
         post_pointwise_variance = pr_pointwise_variance - correction_pointwise_variance
         return post_pointwise_variance, pr_pointwise_variance, correction_pointwise_variance
     
-    def klDistanceFromPrior(self, d = None, m=None, sub_comp = False):
-        if d is None:
-            d = self.d
-        if m is None:
-            m = self.mean
-        dplus1 = d + np.ones_like(d)
+    def klDistanceFromPrior(self, sub_comp = False):
+        dplus1 = self.d + np.ones_like(self.d)
         
         c_logdet = 0.5*np.sum( np.log(dplus1) )
-        c_trace  = -0.5*np.sum(d/dplus1)
-        c_shift  = self.prior.cost(m)
+        c_trace  = -0.5*np.sum(self.d/dplus1)
+        c_shift  = self.prior.cost(self.mean)
         
         kld = c_logdet + c_trace + c_shift
         

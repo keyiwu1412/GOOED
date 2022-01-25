@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2018, The University of Texas at Austin 
-# & University of California, Merced.
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -11,12 +13,9 @@
 # terms of the GNU General Public License (as published by the Free
 # Software Foundation) version 2.0 dated June 1991.
 
-from __future__ import absolute_import, division, print_function
-
 import unittest 
 import dolfin as dl
 import numpy as np
-import scipy.stats as scistat
 
 from numpy.testing import assert_allclose
 
@@ -54,7 +53,7 @@ class TestGaussianRealPrior(unittest.TestCase):
 
         self.precision = np.linalg.inv(self.cov)
 
-        mesh = dl.RectangleMesh(dl.mpi_comm_world(), 
+        mesh = dl.RectangleMesh(dl.MPI.comm_world, 
                                 dl.Point(0.0, 0.0),
                                 dl.Point(3,2), 6, 4)
 
@@ -228,5 +227,8 @@ class TestGaussianRealPrior(unittest.TestCase):
     
 
 if __name__ == '__main__':
-    unittest.main()
+    mpi_comm_world = dl.MPI.comm_world
+    mpi_size = dl.MPI.size(mpi_comm_world)
+    if mpi_size == 1:
+        unittest.main()
 

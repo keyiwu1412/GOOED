@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2018, The University of Texas at Austin 
-# & University of California, Merced.
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -11,26 +13,20 @@
 # terms of the GNU General Public License (as published by the Free
 # Software Foundation) version 2.0 dated June 1991.
 
-from __future__ import absolute_import, division, print_function
-
 import dolfin as dl
 import os
 
 abspath = os.path.dirname( os.path.abspath(__file__) )
 source_directory = os.path.join(abspath,"cpp_rand")
-header_file = open(os.path.join(source_directory,"PRNG.h"), "r")
-code = header_file.read()
-header_file.close()
-cpp_sources = ["PRNG.cpp"]  
+
+with open(os.path.join(source_directory,"PRNG.cpp"), "r") as cpp_file:
+    cpp_code    = cpp_file.read()
+
 
 include_dirs = [".", source_directory]
-for ss in ['PROFILE_INSTALL_DIR', 'PETSC_DIR', 'SLEPC_DIR']:
-    if ss in os.environ.keys():
-        include_dirs.append(os.environ[ss]+'/include')
+
         
-cpp_module = dl.compile_extension_module(
-             code=code, source_directory=source_directory,
-             sources=cpp_sources, include_dirs=include_dirs)
+cpp_module = dl.compile_cpp_code(cpp_code, include_dirs=include_dirs)
 
 
 class Random(cpp_module.Random):
@@ -113,8 +109,8 @@ class Random(cpp_module.Random):
         elif type( dl.as_backend_type(out) ) is dl.PETScVector:
             super(Random, self).rademacher(out)
             
-_world_rank = dl.MPI.rank(dl.mpi_comm_world())
-_world_size = dl.MPI.size(dl.mpi_comm_world())
+_world_rank = dl.MPI.rank(dl.MPI.comm_world)
+_world_size = dl.MPI.size(dl.MPI.comm_world)
 
 parRandom = Random(_world_rank, _world_size)
             

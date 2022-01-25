@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2018, The University of Texas at Austin 
-# & University of California, Merced.
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -11,12 +13,11 @@
 # terms of the GNU General Public License (as published by the Free
 # Software Foundation) version 2.0 dated June 1991.
 
-from __future__ import absolute_import, division, print_function
-
 import dolfin as dl
+import ufl
 import numpy as np
 import matplotlib.pyplot as plt
-import mshr as ms
+import argparse
 
 import sys
 import os
@@ -119,39 +120,32 @@ class TimeDependentAD:
         kappa = dl.Constant(.001)
         dt_expr = dl.Constant(dt)
         
-        r_trial = u + dt_expr*( -dl.div(kappa*dl.nabla_grad(u))+ dl.inner(wind_velocity, dl.nabla_grad(u)) )
-        r_test  = v + dt_expr*( -dl.div(kappa*dl.nabla_grad(v))+ dl.inner(wind_velocity, dl.nabla_grad(v)) )
+        r_trial = u + dt_expr*( -ufl.div(kappa*ufl.grad(u))+ ufl.inner(wind_velocity, ufl.grad(u)) )
+        r_test  = v + dt_expr*( -ufl.div(kappa*ufl.grad(v))+ ufl.inner(wind_velocity, ufl.grad(v)) )
 
         
-        h = dl.CellSize(mesh)
-        vnorm = dl.sqrt(dl.inner(wind_velocity, wind_velocity))
+        h = dl.CellDiameter(mesh)
+        vnorm = ufl.sqrt(ufl.inner(wind_velocity, wind_velocity))
         if gls_stab:
-            tau = dl.Min((h*h)/(dl.Constant(2.)*kappa), h/vnorm )
+            tau = ufl.min_value((h*h)/(dl.Constant(2.)*kappa), h/vnorm )
         else:
             tau = dl.Constant(0.)
                             
-        self.M = dl.assemble( dl.inner(u,v)*dl.dx )
-        self.M_stab = dl.assemble( dl.inner(u, v+tau*r_test)*dl.dx )
-        self.Mt_stab = dl.assemble( dl.inner(u+tau*r_trial,v)*dl.dx )
-        Nvarf  = (dl.inner(kappa *dl.nabla_grad(u), dl.nabla_grad(v)) + dl.inner(wind_velocity, dl.nabla_grad(u))*v )*dl.dx
-        Ntvarf  = (dl.inner(kappa *dl.nabla_grad(v), dl.nabla_grad(u)) + dl.inner(wind_velocity, dl.nabla_grad(v))*u )*dl.dx
+        self.M = dl.assemble( ufl.inner(u,v)*ufl.dx )
+        self.M_stab = dl.assemble( ufl.inner(u, v+tau*r_test)*ufl.dx )
+        self.Mt_stab = dl.assemble( ufl.inner(u+tau*r_trial,v)*ufl.dx )
+        Nvarf  = (ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) + ufl.inner(wind_velocity, ufl.grad(u))*v )*ufl.dx
+        Ntvarf  = (ufl.inner(kappa *ufl.grad(v), ufl.grad(u)) + ufl.inner(wind_velocity, ufl.grad(v))*u )*ufl.dx
         self.N  = dl.assemble( Nvarf )
         self.Nt = dl.assemble(Ntvarf)
-        stab = dl.assemble( tau*dl.inner(r_trial, r_test)*dl.dx)
+        stab = dl.assemble( tau*ufl.inner(r_trial, r_test)*ufl.dx)
         self.L = self.M + dt*self.N + stab
         self.Lt = self.M + dt*self.Nt + stab
-                        
-        if dlversion() <= (1,6,0):
-            self.solver = dl.PETScLUSolver()
-        else:
-            self.solver = dl.PETScLUSolver(self.mesh.mpi_comm())
-        self.solver.set_operator(self.L)
         
-        if dlversion() <= (1,6,0):
-            self.solvert = dl.PETScLUSolver()
-        else:
-            self.solvert = dl.PETScLUSolver(self.mesh.mpi_comm())
-        self.solvert.set_operator(self.Lt)
+        self.solver  = PETScLUSolver( self.mesh.mpi_comm() )
+        self.solver.set_operator( dl.as_backend_type(self.L) )
+        self.solvert = PETScLUSolver( self.mesh.mpi_comm() ) 
+        self.solvert.set_operator(dl.as_backend_type(self.Lt) )
                         
         # Part of model public API
         self.gauss_newton_approx = False
@@ -195,7 +189,7 @@ class TimeDependentAD:
                 
         return [reg+misfit, reg, misfit]
     
-    def solveFwd(self, out, x, tol=1e-9):
+    def solveFwd(self, out, x):
         out.zero()
         uold = x[PARAMETER]
         u = dl.Vector()
@@ -208,7 +202,7 @@ class TimeDependentAD:
             out.store(u,t)
             uold = u
     
-    def solveAdj(self, out, x, tol=1e-9):
+    def solveAdj(self, out, x):
         
         grad_state = TimeDependentVector(self.simulation_times)
         grad_state.initialize(self.M, 0)
@@ -272,7 +266,7 @@ class TimeDependentAD:
         return
 
         
-    def solveFwdIncremental(self, sol, rhs, tol=1e-9):
+    def solveFwdIncremental(self, sol, rhs):
         sol.zero()
         uold = dl.Vector()
         u = dl.Vector()
@@ -293,7 +287,7 @@ class TimeDependentAD:
 
 
         
-    def solveAdjIncremental(self, sol, rhs, tol=1e-9):
+    def solveAdjIncremental(self, sol, rhs):
         sol.zero()
         pold = dl.Vector()
         p = dl.Vector()
@@ -354,13 +348,15 @@ class TimeDependentAD:
         out.zero()
         
     def exportState(self, x, filename, varname):
-        out_file = dl.File(filename)
+        out_file = dl.XDMFFile(self.Vh[STATE].mesh().mpi_comm(), filename)
+        out_file.parameters["functions_share_mesh"] = True
+        out_file.parameters["rewrite_function_mesh"] = False
         ufunc = dl.Function(self.Vh[STATE], name=varname)
         t = self.simulation_times[0]
-        out_file << (vector2Function(x[PARAMETER], self.Vh[STATE], name=varname),t)
+        out_file.write(vector2Function(x[PARAMETER], self.Vh[STATE], name=varname),t)
         for t in self.simulation_times[1:]:
             x[STATE].retrieve(ufunc.vector(), t)
-            out_file << (ufunc, t)
+            out_file.write(ufunc, t)
             
         
         
@@ -373,11 +369,9 @@ def q_boundary(x,on_boundary):
 def computeVelocityField(mesh):
     Xh = dl.VectorFunctionSpace(mesh,'Lagrange', 2)
     Wh = dl.FunctionSpace(mesh, 'Lagrange', 1)
-    if dlversion() <= (1,6,0):
-        XW = dl.MixedFunctionSpace([Xh, Wh])
-    else:
-        mixed_element = dl.MixedElement([Xh.ufl_element(), Wh.ufl_element()])
-        XW = dl.FunctionSpace(mesh, mixed_element)
+
+    mixed_element = dl.MixedElement([Xh.ufl_element(), Wh.ufl_element()])
+    XW = dl.FunctionSpace(mesh, mixed_element)
 
     
     Re = 1e2
@@ -388,14 +382,14 @@ def computeVelocityField(mesh):
     bcs = [bc1, bc2]
     
     vq = dl.Function(XW)
-    (v,q) = dl.split(vq)
+    (v,q) = ufl.split(vq)
     (v_test, q_test) = dl.TestFunctions (XW)
     
     def strain(v):
-        return dl.sym(dl.nabla_grad(v))
+        return ufl.sym(ufl.grad(v))
     
-    F = ( (2./Re)*dl.inner(strain(v),strain(v_test))+ dl.inner (dl.nabla_grad(v)*v, v_test)
-           - (q * dl.div(v_test)) + ( dl.div(v) * q_test) ) * dl.dx
+    F = ( (2./Re)*ufl.inner(strain(v),strain(v_test))+ ufl.inner (ufl.nabla_grad(v)*v, v_test)
+           - (q * ufl.div(v_test)) + ( ufl.div(v) * q_test) ) * ufl.dx
            
     dl.solve(F == 0, vq, bcs, solver_parameters={"newton_solver":
                                          {"relative_tolerance":1e-4, "maximum_iterations":100,
@@ -406,13 +400,26 @@ def computeVelocityField(mesh):
 
         
 if __name__ == "__main__":
-    dl.set_log_active(False)
+    parser = argparse.ArgumentParser(description='Model Advection Diffusion')
+    parser.add_argument('--mesh',
+                        default="ad_10k.xml",
+                        type=str,
+                        help="Mesh filename")
+    parser.add_argument('--nref',
+                        default=0,
+                        type=int,
+                        help="Number of uniform mesh refinements")
+    args = parser.parse_args()
+    try:
+        dl.set_log_active(False)
+    except:
+        pass
     np.random.seed(1)
     sep = "\n"+"#"*80+"\n"
 
-    nref = 0
+    nref = args.nref
 
-    mesh = dl.Mesh("ad_10k.xml")
+    mesh = dl.Mesh(args.mesh)
     for i in range(nref):
         mesh = dl.refine(mesh)
 
@@ -440,7 +447,6 @@ if __name__ == "__main__":
         print( "Prior regularization: (delta - gamma*Laplacian)^order: delta={0}, gamma={1}, order={2}".format(delta, gamma,2) )
 
         
-#    prior.mean = interpolate(Expression('min(0.6,exp(-50*(pow(x[0]-0.34,2) +  pow(x[1]-0.71,2))))'), Vh).vector()
     prior.mean = dl.interpolate(dl.Constant(0.25), Vh).vector()
     
     t_init         = 0.
@@ -466,7 +472,7 @@ if __name__ == "__main__":
     rel_noise = 0.01
     utrue = problem.generate_vector(STATE)
     x = [utrue, true_initial_condition, None]
-    problem.solveFwd(x[STATE], x, 1e-9)
+    problem.solveFwd(x[STATE], x)
     misfit.observe(x, misfit.d)
     MAX = misfit.d.norm("linf", "linf")
     noise_std_dev = rel_noise * MAX
@@ -477,13 +483,13 @@ if __name__ == "__main__":
     if rank == 0:
         print( sep, "Test the gradient and the Hessian of the model", sep )
     m0 = true_initial_condition.copy()
-    modelVerify(problem, m0, 1e-12, is_quadratic = True, misfit_only = True,  verbose = (rank == 0))
+    modelVerify(problem, m0, is_quadratic = True, misfit_only = True,  verbose = (rank == 0))
 
     if rank == 0:
         print( sep, "Compute the reduced gradient and hessian", sep)
     [u,m,p] = problem.generate_vector()
-    problem.solveFwd(u, [u,m,p], 1e-12)
-    problem.solveAdj(p, [u,m,p], 1e-12)
+    problem.solveFwd(u, [u,m,p])
+    problem.solveAdj(p, [u,m,p])
     mg = problem.generate_vector(PARAMETER)
     grad_norm = problem.evalGradientParameter([u,m,p], mg)
     
@@ -493,7 +499,7 @@ if __name__ == "__main__":
     if rank == 0:
         print( sep, "Compute the low rank Gaussian Approximation of the posterior", sep  )
     
-    H = ReducedHessian(problem, 1e-12, misfit_only=True) 
+    H = ReducedHessian(problem, misfit_only=True) 
     k = 80
     p = 20
     if rank == 0:
@@ -523,7 +529,7 @@ if __name__ == "__main__":
     if rank != 0:
         solver.parameters["print_level"] = -1
     solver.solve(m, -mg)
-    problem.solveFwd(u, [u,m,p], 1e-12)
+    problem.solveFwd(u, [u,m,p])
  
     total_cost, reg_cost, misfit_cost = problem.cost([u,m,p])
     if rank == 0:
@@ -540,37 +546,40 @@ if __name__ == "__main__":
     
     if rank == 0:
         print( sep, "Save results", sep  )
-    problem.exportState([u,m,p], "results/conc.pvd", "concentration")
-    problem.exportState([utrue,true_initial_condition,p], "results/true_conc.pvd", "concentration")
+    problem.exportState([u,m,p], "results/conc.xdmf", "concentration")
+    problem.exportState([utrue,true_initial_condition,p], "results/true_conc.xdmf", "concentration")
 
-    fid = dl.File("results/pointwise_variance.pvd")
-    fid << vector2Function(post_pw_variance, Vh, name="Posterior")
-    fid << vector2Function(pr_pw_variance, Vh, name="Prior")
-    fid << vector2Function(corr_pw_variance, Vh, name="Correction")
+    with dl.XDMFFile(mesh.mpi_comm(), "results/pointwise_variance.xdmf") as fid:
+        fid.parameters["functions_share_mesh"] = True
+        fid.parameters["rewrite_function_mesh"] = False
     
-    U.export(Vh, "hmisfit/evect.pvd", varname = "gen_evect", normalize = True)
+        fid.write(vector2Function(post_pw_variance, Vh, name="Posterior"), 0)
+        fid.write(vector2Function(pr_pw_variance, Vh, name="Prior"), 0)
+        fid.write(vector2Function(corr_pw_variance, Vh, name="Correction"), 0)
+    
+    U.export(Vh, "results/evect.xdmf", varname = "gen_evect", normalize = True)
     if rank == 0:
-        np.savetxt("hmisfit/eigevalues.dat", d)
+        np.savetxt("results/eigevalues.dat", d)
     
+    fid_prmean  = dl.XDMFFile(mesh.mpi_comm(), "results/pr_mean.xdmf")
+    fid_prmean.write(vector2Function(prior.mean, Vh, name="prior mean"))
     
     if rank == 0:
         print( sep, "Generate samples from Prior and Posterior", sep)
-    fid_prior = dl.File("samples/sample_prior.pvd")
-    fid_post  = dl.File("samples/sample_post.pvd")
-
-    fid_prmean  = dl.File("samples/pr_mean.pvd")
-    fid_prmean << vector2Function(prior.mean, Vh, name="prior mean")
 
     nsamples = 50
     noise = dl.Vector()
     posterior.init_vector(noise,"noise")
     s_prior = dl.Function(Vh, name="sample_prior")
     s_post = dl.Function(Vh, name="sample_post")
-    for i in range(nsamples):
-        parRandom.normal(1., noise)
-        posterior.sample(noise, s_prior.vector(), s_post.vector())
-        fid_prior << s_prior
-        fid_post << s_post
+    with dl.XDMFFile(mesh.mpi_comm(), "results/samples.xdmf") as fid:
+        fid.parameters["functions_share_mesh"] = True
+        fid.parameters["rewrite_function_mesh"] = False
+        for i in range(nsamples):
+            parRandom.normal(1., noise)
+            posterior.sample(noise, s_prior.vector(), s_post.vector())
+            fid.write(s_prior, i)
+            fid.write(s_post, i)
     
     if rank == 0:
         print( sep, "Visualize results", sep )
@@ -578,9 +587,5 @@ if __name__ == "__main__":
         plt.plot(range(0,k), d, 'b*', range(0,k), np.ones(k), '-r')
         plt.yscale('log')
         plt.show()
-    
-    if nproc == 1:
-        dl.plot(vector2Function(m, Vh, name = "Initial Condition"))
-        dl.interactive()
 
     

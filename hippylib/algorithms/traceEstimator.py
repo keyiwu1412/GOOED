@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2018, The University of Texas at Austin 
-# & University of California, Merced.
+# & University of California--Merced.
+# Copyright (c) 2019-2020, The University of Texas at Austin 
+# University of California--Merced, Washington University in St. Louis.
 #
 # All Rights reserved.
 # See file COPYRIGHT for details.
@@ -11,9 +13,7 @@
 # terms of the GNU General Public License (as published by the Free
 # Software Foundation) version 2.0 dated June 1991.
 
-from __future__ import absolute_import, division, print_function
-
-from dolfin import Vector, mpi_comm_world
+import dolfin as dl
 from ..utils.random import parRandom
 import math
 from .linalg import Solver2Operator
@@ -42,7 +42,7 @@ class TraceEstimator:
     Reference: Haim Avron and Sivan Toledo, Randomized algorithms for estimating the trace of an implicit symmetric positive semi-definite matrix,
     Journal of the ACM (JACM), 58 (2011), p. 17.
     """
-    def __init__(self, A, solve_mode=False, accurancy = 1e-1, init_vector=None, random_engine=rademacher_engine, mpi_comm=mpi_comm_world()):
+    def __init__(self, A, solve_mode=False, accurancy = 1e-1, init_vector=None, random_engine=rademacher_engine, mpi_comm=dl.MPI.comm_world):
         """
         Constructor:
 
@@ -62,8 +62,8 @@ class TraceEstimator:
         self.random_engine = random_engine
         self.iter = 0
         
-        self.z = Vector(mpi_comm)
-        self.Az = Vector(mpi_comm)
+        self.z = dl.Vector(mpi_comm)
+        self.Az = dl.Vector(mpi_comm)
         
         if init_vector is None:
             A.init_vector(self.z, 0)
