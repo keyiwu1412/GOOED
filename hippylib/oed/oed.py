@@ -120,9 +120,6 @@ if __name__ == "__main__":
     print("Prior regularization: (delta_x - gamma*Laplacian)^order: delta={0}, gamma={1}, order={2}".format(delta, gamma,2))    
 
 
-
-    model = Model(pde,prior, misfit)
-
     #####Set up the misfit functional and generate synthetic observations#########################
 
     rel_noise = 0.01
@@ -138,7 +135,8 @@ if __name__ == "__main__":
 
     print( "Number of observation points: {0}".format(ntargets) )
 
-
+    misfit = PointwiseStateObservation(Vh[STATE], targets)
+    model = Model(pde,prior, misfit)
 
     #####low rank approximation of H_d#########################
 
