@@ -22,7 +22,7 @@ logging.getLogger('FFC').setLevel(logging.WARNING)
 logging.getLogger('UFL').setLevel(logging.WARNING)
 dl.set_log_active(False)
 
-np.random.seed(seed=2)
+np.random.seed(seed=1)
 
 #######compute Hessian eigen value decomp#################################
 
